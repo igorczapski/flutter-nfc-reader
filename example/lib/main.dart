@@ -67,6 +67,33 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  Future<void> writeNFC() async {
+    NfcData response;
+
+    setState(() {
+      _nfcData = NfcData();
+      _nfcData.status = NFCStatus.writing;
+    });
+
+    try{
+      print('NFC: write');
+      List<String> testRecords = ["20:This is first message", "21:This is second message"];
+      response = await FlutterNfcReader.write(testRecords);
+    } on PlatformException {
+      print('NFC: write exception');
+      response = NfcData(
+        id: '',
+        content: null,
+        error: 'NFC write exception',
+        statusMapper: ''
+      );
+      response.status = NFCStatus.error;
+    }
+    setState(() {
+      _nfcData = response;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return new MaterialApp(
@@ -113,6 +140,12 @@ class _MyAppState extends State<MyApp> {
                     child: Text('Stop NFC'),
                     onPressed: () {
                       stopNFC();
+                    },
+                  ),
+                  new RaisedButton(
+                    child: Text('Write NFC'),
+                    onPressed: () {
+                      writeNFC();
                     },
                   ),
                 ],

@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 enum NFCStatus {
   none,
   reading,
+  writing,
+  finishedwrite,
   read,
   stopped,
   error,
@@ -44,6 +46,12 @@ class NfcData {
       case 'error':
         result.status = NFCStatus.error;
         break;
+      case 'writing':
+        result.status = NFCStatus.writing;
+        break;
+      case 'finishedwrite':
+        result.status = NFCStatus.finishedwrite;
+        break;
       default:
         result.status = NFCStatus.none;
     }
@@ -68,6 +76,14 @@ class FlutterNfcReader {
 
     final NfcData result = NfcData.fromMap(data);
 
+    return result;
+  }
+
+  static Future<NfcData> write(List<dynamic> nfcRecords) async {
+    final Map data = await _channel.invokeMethod('NfcWrite', <String, dynamic>{
+      'records': nfcRecords
+    });
+    final NfcData result = NfcData.fromMap(data);
     return result;
   }
 }

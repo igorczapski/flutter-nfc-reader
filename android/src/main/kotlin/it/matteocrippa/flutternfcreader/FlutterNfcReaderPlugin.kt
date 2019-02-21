@@ -1,10 +1,11 @@
 package it.matteocrippa.flutternfcreader
 
 import android.Manifest
+import android.app.PendingIntent
 import android.content.Context
-import android.nfc.NfcAdapter
-import android.nfc.NfcManager
-import android.nfc.Tag
+import android.content.Intent
+import android.content.IntentFilter
+import android.nfc.*
 import android.nfc.tech.Ndef
 import android.os.Build
 import io.flutter.plugin.common.MethodCall
@@ -13,6 +14,8 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.PluginRegistry.Registrar
 import java.nio.charset.Charset
+import android.nfc.NdefRecord
+import java.io.UnsupportedEncodingException
 
 
 const val PERMISSION_NFC = 1007
@@ -32,6 +35,10 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
     private var kError = "nfcError"
     private var kStatus = "nfcStatus"
 
+    private var method = "";
+
+    private var recordsToSave = ArrayList<String>();
+
     private var READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_V;
 
     companion object {
@@ -48,7 +55,7 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
     }
 
     override fun onMethodCall(call: MethodCall, result: Result): Unit {
-
+        this.method = call.method;
         when (call.method) {
             "NfcRead" -> {
 
@@ -74,14 +81,45 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
                 val data = mapOf(kId to "", kContent to null, kError to "", kStatus to "stopped")
                 result.success(data)
             }
-            //TODO handle writes
-//            "NfcWrite" -> {
-//                result.success(null)
-//            }
+            "NfcWrite" -> {
+                val records = call.argument<ArrayList<String>>("records");
+                if(records != null)
+                    this.recordsToSave = records;
+                else
+                    this.recordsToSave = ArrayList<String>();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    activity.requestPermissions(
+                            arrayOf(Manifest.permission.NFC),
+                            PERMISSION_NFC
+                    )
+                }
+
+                resulter = result
+
+                writeNFC()
+                if(!isReading) {
+                    val data = mapOf(kId to "", kContent to null, kError to "NFC Hardware not found", kStatus to "error")
+                    result.success(data)
+                }
+            }
             else -> {
                 result.notImplemented()
             }
         }
+    }
+
+    private fun writeNFC(): Boolean {
+        isReading = if (nfcAdapter?.isEnabled == true) {
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                nfcAdapter?.enableReaderMode(registrar.activity(), this, READER_FLAGS, null )
+            }
+
+            true
+        } else {
+            false
+        }
+        return isReading
     }
 
     private fun startNFC(): Boolean {
@@ -108,6 +146,60 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
 
     // handle discovered NDEF Tags
     override fun onTagDiscovered(tag: Tag?) {
+       if(method == "NfcRead"){
+           onReadTag(tag);
+       }else if(method == "NfcWrite"){
+           onWriteTag(tag);
+       }
+    }
+
+    private fun onWriteTag(tag: Tag?) {
+        if(this.recordsToSave.size == 0){
+            val data = mapOf(kId to "", kContent to null, kError to "No records to write", kStatus to "error")
+            resulter?.success(data)
+            return;
+        }
+        if (tag != null) {
+            for(tech in tag.techList) {
+                if(tech == Ndef::class.java.name){
+                    val ndef = Ndef.get(tag);
+                    ndef.connect();
+                    val ndefMessage = ndef.ndefMessage;
+                    val ndefRecord = ndefMessage.records.get(0);
+                    val recordsForNdefMessage = this.recordsToSave.map {
+                        createTextRecord("en", it);
+                    }.toTypedArray();
+                    val newMessage = NdefMessage(recordsForNdefMessage)
+                    ndef.writeNdefMessage(newMessage);
+                    ndef.close();
+                    val data = mapOf(kId to "", kContent to null, kError to "", kStatus to "finishedwrite")
+                    resulter?.success(data)
+                }
+            }
+        }
+    }
+
+    fun createTextRecord(language: String, text: String): NdefRecord {
+        val languageBytes: ByteArray
+        val textBytes: ByteArray
+        try {
+            languageBytes = language.toByteArray(charset("US-ASCII"))
+            textBytes = text.toByteArray(charset("UTF-8"))
+        } catch (e: UnsupportedEncodingException) {
+            throw AssertionError(e)
+        }
+
+        val recordPayload = ByteArray(1 + (languageBytes.size and 0x03F) + textBytes.size)
+
+        recordPayload[0] = (languageBytes.size and 0x03F).toByte()
+        System.arraycopy(languageBytes, 0, recordPayload, 1, languageBytes.size and 0x03F)
+        System.arraycopy(textBytes, 0, recordPayload, 1 + (languageBytes.size and 0x03F), textBytes.size)
+
+        return NdefRecord(NdefRecord.TNF_WELL_KNOWN, NdefRecord.RTD_TEXT, null, recordPayload)
+    }
+
+
+    private fun onReadTag(tag: Tag?) {
         // convert tag to NDEF tag
         val ndef = Ndef.get(tag)
         // ndef will be null if the discovered tag is not a NDEF tag
