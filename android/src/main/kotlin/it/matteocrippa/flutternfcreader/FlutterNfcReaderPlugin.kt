@@ -32,7 +32,7 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
     private var kError = "nfcError"
     private var kStatus = "nfcStatus"
 
-    private var READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A
+    private var READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_V;
 
     companion object {
         @JvmStatic
@@ -63,7 +63,7 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
                 startNFC()
 
                 if (!isReading) {
-                    val data = mapOf(kId to "", kContent to "", kError to "NFC Hardware not found", kStatus to "error")
+                    val data = mapOf(kId to "", kContent to null, kError to "NFC Hardware not found", kStatus to "error")
                     result.success(data)
                     resulter = null
                 }
@@ -71,9 +71,13 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
             }
             "NfcStop" -> {
                 stopNFC()
-                val data = mapOf(kId to "", kContent to "", kError to "", kStatus to "stopped")
+                val data = mapOf(kId to "", kContent to null, kError to "", kStatus to "stopped")
                 result.success(data)
             }
+            //TODO handle writes
+//            "NfcWrite" -> {
+//                result.success(null)
+//            }
             else -> {
                 result.notImplemented()
             }
@@ -109,14 +113,30 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
         // ndef will be null if the discovered tag is not a NDEF tag
         // read NDEF message
         ndef?.connect()
-        val message = ndef?.ndefMessage
-                          ?.toByteArray()
-                          ?.toString(Charset.forName("UTF-8")) ?: ""
-        //val id = tag?.id?.toString(Charset.forName("ISO-8859-1")) ?: ""
+        val records = ndef?.ndefMessage?.records;
+
+        if(records == null){
+            ndef?.close()
+            return;
+        }
+        var payloadList = mutableListOf<String>();
+        for(record in records){
+            val payloadBytes = record?.payload
+            if(payloadBytes == null){
+                return;
+            }
+            val isUTF8 = payloadBytes.get(0).toInt().and(0x080) == 0  //status byte: bit 7 indicates encoding (0 = UTF-8, 1 = UTF-16)
+            val languageLength = payloadBytes.get(0).toInt().and(0x03F)     //status byte: bits 5..0 indicate length of language code
+            val textLength = payloadBytes.size.minus(1).minus(if (languageLength == null) 0 else languageLength)
+            val languageCode = String(payloadBytes, 1, languageLength, Charset.forName("US-ASCII"))
+            val encoding = if (isUTF8) Charset.forName("UTF-8") else Charset.forName("UTF-16");
+            val payloadText = String(payloadBytes, 1 + languageLength, textLength, encoding)
+            payloadList.add(payloadText);
+        }
         val id = bytesToHexString(tag?.id) ?: ""
         ndef?.close()
-        if (message != null) {
-            val data = mapOf(kId to id, kContent to message, kError to "", kStatus to "read")
+        if (payloadList.size > 0) {
+            val data = mapOf(kId to id, kContent to payloadList, kError to "", kStatus to "read")
             resulter?.success(data)
         }
     }

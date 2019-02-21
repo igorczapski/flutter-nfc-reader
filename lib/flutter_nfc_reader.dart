@@ -11,7 +11,7 @@ enum NFCStatus {
 
 class NfcData {
   final String id;
-  final String content;
+  final List<dynamic> content;
   final String error;
   final String statusMapper;
 
