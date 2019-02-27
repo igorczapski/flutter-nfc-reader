@@ -122,9 +122,11 @@ extension SwiftFlutterNfcReaderPlugin : NFCNDEFReaderSessionDelegate {
     
     public func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
         print(error.localizedDescription)
-        let data = [kId: "", kContent: nil, kError: error.localizedDescription, kStatus: "error"]
-
-        resulter?(data)
-        disableNFC()
+        let code = (error as NSError).code
+        if(code != 204){
+            let data = [kId: "", kContent: nil, kError: error.localizedDescription, kStatus: "error"]
+            resulter?(data)
+            disableNFC()
+        }
     }
 }
