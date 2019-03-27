@@ -207,11 +207,13 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
         ndef?.connect()
         val records = ndef?.ndefMessage?.records;
 
+        var payloadList = mutableListOf<String>();
         if(records == null){
+            val data = mapOf(kId to "", kContent to payloadList, kError to "", kStatus to "read");
+            resulter?.success(data)
             ndef?.close()
             return;
         }
-        var payloadList = mutableListOf<String>();
         for(record in records){
             val payloadBytes = record?.payload
             if(payloadBytes == null){
