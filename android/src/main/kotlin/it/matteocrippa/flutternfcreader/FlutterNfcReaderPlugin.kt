@@ -165,7 +165,6 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
                     val ndef = Ndef.get(tag);
                     ndef.connect();
                     val ndefMessage = ndef.ndefMessage;
-                    val ndefRecord = ndefMessage.records.get(0);
                     val recordsForNdefMessage = this.recordsToSave.map {
                         createTextRecord("en", it);
                     }.toTypedArray();
