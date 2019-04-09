@@ -164,18 +164,58 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
                 if(tech == Ndef::class.java.name){
                     val ndef = Ndef.get(tag);
                     ndef.connect();
-                    val ndefMessage = ndef.ndefMessage;
+                    this.eraseTag(ndef);
                     val recordsForNdefMessage = this.recordsToSave.map {
                         createTextRecord("en", it);
                     }.toTypedArray();
                     val newMessage = NdefMessage(recordsForNdefMessage)
                     ndef.writeNdefMessage(newMessage);
+
+                    //reading confirmation
+                    val records = ndef?.ndefMessage?.records;
+                    val payloadList = handleReadingNdef(ndef);
+
+                    val id = bytesToHexString(tag?.id) ?: ""
                     ndef.close();
-                    val data = mapOf(kId to "", kContent to null, kError to "", kStatus to "finishedwrite")
-                    resulter?.success(data)
+                    if (payloadList.size > 0) {
+                        val data = mapOf(kId to id, kContent to payloadList, kError to "", kStatus to "finishedwrite")
+                        resulter?.success(data)
+                    }else{
+                        val data = mapOf(kId to "", kContent to null, kError to "Data not written properly", kStatus to "error")
+                        resulter?.success(data)
+                    }
                 }
             }
         }
+    }
+
+    private fun eraseTag(ndef: Ndef?) {
+        ndef?.writeNdefMessage(NdefMessage(NdefRecord(NdefRecord.TNF_EMPTY, null, null, null)));
+    }
+
+    private fun handleReadingNdef(ndef: Ndef?): MutableList<String> {
+        val records = ndef?.ndefMessage?.records;
+        var payloadList = mutableListOf<String>();
+        if(records == null){
+            val data = mapOf(kId to "", kContent to payloadList, kError to "", kStatus to "read");
+            resulter?.success(data)
+            ndef?.close()
+            return payloadList;
+        }
+        for(record in records){
+            val payloadBytes = record?.payload
+            if(payloadBytes == null){
+                return payloadList;
+            }
+            val isUTF8 = payloadBytes.get(0).toInt().and(0x080) == 0  //status byte: bit 7 indicates encoding (0 = UTF-8, 1 = UTF-16)
+            val languageLength = payloadBytes.get(0).toInt().and(0x03F)     //status byte: bits 5..0 indicate length of language code
+            val textLength = payloadBytes.size.minus(1).minus(if (languageLength == null) 0 else languageLength)
+            val languageCode = String(payloadBytes, 1, languageLength, Charset.forName("US-ASCII"))
+            val encoding = if (isUTF8) Charset.forName("UTF-8") else Charset.forName("UTF-16");
+            val payloadText = String(payloadBytes, 1 + languageLength, textLength, encoding)
+            payloadList.add(payloadText);
+        }
+        return payloadList;
     }
 
     fun createTextRecord(language: String, text: String): NdefRecord {
@@ -205,27 +245,7 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
         // read NDEF message
         ndef?.connect()
         val records = ndef?.ndefMessage?.records;
-
-        var payloadList = mutableListOf<String>();
-        if(records == null){
-            val data = mapOf(kId to "", kContent to payloadList, kError to "", kStatus to "read");
-            resulter?.success(data)
-            ndef?.close()
-            return;
-        }
-        for(record in records){
-            val payloadBytes = record?.payload
-            if(payloadBytes == null){
-                return;
-            }
-            val isUTF8 = payloadBytes.get(0).toInt().and(0x080) == 0  //status byte: bit 7 indicates encoding (0 = UTF-8, 1 = UTF-16)
-            val languageLength = payloadBytes.get(0).toInt().and(0x03F)     //status byte: bits 5..0 indicate length of language code
-            val textLength = payloadBytes.size.minus(1).minus(if (languageLength == null) 0 else languageLength)
-            val languageCode = String(payloadBytes, 1, languageLength, Charset.forName("US-ASCII"))
-            val encoding = if (isUTF8) Charset.forName("UTF-8") else Charset.forName("UTF-16");
-            val payloadText = String(payloadBytes, 1 + languageLength, textLength, encoding)
-            payloadList.add(payloadText);
-        }
+        val payloadList = handleReadingNdef(ndef);
         val id = bytesToHexString(tag?.id) ?: ""
         ndef?.close()
         if (payloadList.size > 0) {
