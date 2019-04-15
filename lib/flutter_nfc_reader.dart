@@ -11,6 +11,8 @@ enum NFCStatus {
   error,
 }
 
+enum NFCAvailability { unavailable, availableOn, availableOff }
+
 class NfcData {
   final String id;
   final List<dynamic> content;
@@ -80,15 +82,23 @@ class FlutterNfcReader {
   }
 
   static Future<NfcData> write(List<dynamic> nfcRecords) async {
-    final Map data = await _channel.invokeMethod('NfcWrite', <String, dynamic>{
-      'records': nfcRecords
-    });
+    final Map data = await _channel
+        .invokeMethod('NfcWrite', <String, dynamic>{'records': nfcRecords});
     final NfcData result = NfcData.fromMap(data);
     return result;
   }
 
-  static Future<String> get checkAvailability async {
-    return await _channel.invokeMethod('NfcAvailability');
+  static Future<NFCAvailability> get checkAvailability async {
+    final availability = await _channel.invokeMethod('NfcAvailability');
+    switch (availability) {
+      case "NFC_UNAVAILABLE":
+        return NFCAvailability.unavailable;
+      case "NFC_AVAILABLE_ON":
+        return NFCAvailability.availableOn;
+      case "NFC_AVAILABLE_OFF":
+        return NFCAvailability.availableOff;
+      default:
+        return NFCAvailability.unavailable;
+    }
   }
-
 }
