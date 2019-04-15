@@ -20,7 +20,7 @@ import java.io.UnsupportedEncodingException
 
 const val PERMISSION_NFC = 1007
 
-class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  NfcAdapter.ReaderCallback {
+class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler, NfcAdapter.ReaderCallback {
 
     private val activity = registrar.activity()
 
@@ -61,8 +61,8 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     activity.requestPermissions(
-                        arrayOf(Manifest.permission.NFC),
-                        PERMISSION_NFC
+                            arrayOf(Manifest.permission.NFC),
+                            PERMISSION_NFC
                     )
                 }
 
@@ -83,7 +83,7 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
             }
             "NfcWrite" -> {
                 val records = call.argument<ArrayList<String>>("records");
-                if(records != null)
+                if (records != null)
                     this.recordsToSave = records;
                 else
                     this.recordsToSave = ArrayList<String>();
@@ -97,9 +97,18 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
                 resulter = result
 
                 writeNFC()
-                if(!isReading) {
+                if (!isReading) {
                     val data = mapOf(kId to "", kContent to null, kError to "NFC Hardware not found", kStatus to "error")
                     result.success(data)
+                }
+            }
+            "NfcAvailability" -> {
+                if (nfcAdapter == null) {
+                    result.success("NFC_UNAVAILABLE")
+                } else if (nfcAdapter?.isEnabled == true) {
+                    result.success("NFC_AVAILABLE_ON")
+                } else {
+                    result.success("NFC_AVAILABLE_OFF")
                 }
             }
             else -> {
@@ -112,7 +121,7 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
         isReading = if (nfcAdapter?.isEnabled == true) {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                nfcAdapter?.enableReaderMode(registrar.activity(), this, READER_FLAGS, null )
+                nfcAdapter?.enableReaderMode(registrar.activity(), this, READER_FLAGS, null)
             }
 
             true
@@ -126,7 +135,7 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
         isReading = if (nfcAdapter?.isEnabled == true) {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                nfcAdapter?.enableReaderMode(registrar.activity(), this, READER_FLAGS, null )
+                nfcAdapter?.enableReaderMode(registrar.activity(), this, READER_FLAGS, null)
             }
 
             true
@@ -146,22 +155,32 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler,  Nfc
 
     // handle discovered NDEF Tags
     override fun onTagDiscovered(tag: Tag?) {
-       if(method == "NfcRead"){
-           onReadTag(tag);
-       }else if(method == "NfcWrite"){
-           onWriteTag(tag);
-       }
+        try {
+            if (method == "NfcRead") {
+                onReadTag(tag);
+            } else if (method == "NfcWrite") {
+                onWriteTag(tag);
+            }
+        } catch (e: android.nfc.TagLostException) {
+            e.printStackTrace()
+            val data = mapOf(kId to "", kContent to null, kError to "Tag lost", kStatus to "error")
+            resulter?.success(data)
+        } catch (e: java.io.IOException) {
+            e.printStackTrace()
+            val data = mapOf(kId to "", kContent to null, kError to "I/O exception", kStatus to "error")
+            resulter?.success(data)
+        }
     }
 
     private fun onWriteTag(tag: Tag?) {
-        if(this.recordsToSave.size == 0){
+        if (this.recordsToSave.size == 0) {
             val data = mapOf(kId to "", kContent to null, kError to "No records to write", kStatus to "error")
             resulter?.success(data)
             return;
         }
         if (tag != null) {
-            for(tech in tag.techList) {
-                if(tech == Ndef::class.java.name){
+            for (tech in tag.techList) {
+                if (tech == Ndef::class.java.name) {
                     val ndef = Ndef.get(tag);
                     ndef.connect();
                     this.eraseTag(ndef);

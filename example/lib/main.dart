@@ -94,6 +94,10 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  Future<String> checkAvailability() async {
+    return await FlutterNfcReader.checkAvailability;
+  }
+
   @override
   Widget build(BuildContext context) {
     return new MaterialApp(
@@ -146,6 +150,12 @@ class _MyAppState extends State<MyApp> {
                     child: Text('Write NFC'),
                     onPressed: () {
                       writeNFC();
+                    },
+                  ),
+                  new RaisedButton(
+                    child: Text('Check Availability'),
+                    onPressed: () {
+                      checkAvailability().then((data)=> print(data));
                     },
                   ),
                 ],

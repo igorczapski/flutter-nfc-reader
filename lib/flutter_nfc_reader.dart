@@ -86,4 +86,9 @@ class FlutterNfcReader {
     final NfcData result = NfcData.fromMap(data);
     return result;
   }
+
+  static Future<String> get checkAvailability async {
+    return await _channel.invokeMethod('NfcAvailability');
+  }
+
 }
