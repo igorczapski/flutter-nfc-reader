@@ -9,6 +9,7 @@ enum NFCStatus {
   read,
   stopped,
   error,
+  error_diff_tag
 }
 
 enum NFCAvailability { unavailable, availableOn, availableOff }
@@ -47,6 +48,9 @@ class NfcData {
         break;
       case 'error':
         result.status = NFCStatus.error;
+        break;
+      case 'error_diff_tag':
+        result.status = NFCStatus.error_diff_tag;
         break;
       case 'writing':
         result.status = NFCStatus.writing;

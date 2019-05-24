@@ -78,7 +78,7 @@ class _MyAppState extends State<MyApp> {
     try{
       print('NFC: write');
       List<String> testRecords = ["20:This is first message", "21:This is second message"];
-      response = await FlutterNfcReader.write(testRecords);
+      response = await FlutterNfcReader.write(testRecords, "20:This is first message");
     } on PlatformException {
       print('NFC: write exception');
       response = NfcData(
@@ -94,7 +94,7 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  Future<String> checkAvailability() async {
+  Future<NFCAvailability> checkAvailability() async {
     return await FlutterNfcReader.checkAvailability;
   }
 
