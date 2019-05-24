@@ -39,6 +39,8 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler, NfcA
 
     private var recordsToSave = ArrayList<String>();
 
+    private var lastTagReadId: String? = "";
+
     private var READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_V;
 
     companion object {
@@ -87,6 +89,12 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler, NfcA
                     this.recordsToSave = records;
                 else
                     this.recordsToSave = ArrayList<String>();
+                val lastTagId = call.argument<String>("lastTagReadId");
+                if(lastTagId != null)
+                    this.lastTagReadId = lastTagId
+                else
+                    this.lastTagReadId = null;
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     activity.requestPermissions(
                             arrayOf(Manifest.permission.NFC),
@@ -183,6 +191,29 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler, NfcA
                 if (tech == Ndef::class.java.name) {
                     val ndef = Ndef.get(tag);
                     ndef.connect();
+                    //Read and check whether this is the tag we want to write
+                    val recordsBeforeWrite = ndef?.ndefMessage?.records;
+                    val payloadListBeforeWrite = handleReadingNdef(ndef);
+                    val iter = payloadListBeforeWrite.listIterator();
+                    var isTheSameTag = false;
+                    for (item in iter) {
+                        if(this.lastTagReadId == null){
+                            isTheSameTag = false;
+                            break;
+                        }
+                        if(item == this.lastTagReadId){
+                            isTheSameTag = true;
+                            break;
+                        }
+                    }
+                    if(!isTheSameTag){
+                        val data = mapOf(kId to "", kContent to null, kError to "Cannot write to different tag", kStatus to "error_diff_tag")
+                        resulter?.success(data);
+                        ndef.close();
+                        return;
+                    }
+                    this.lastTagReadId = null;
+
                     this.eraseTag(ndef);
                     val recordsForNdefMessage = this.recordsToSave.map {
                         createTextRecord("en", it);

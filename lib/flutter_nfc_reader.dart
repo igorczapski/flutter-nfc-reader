@@ -63,7 +63,7 @@ class NfcData {
 
 class FlutterNfcReader {
   static const MethodChannel _channel =
-      const MethodChannel('flutter_nfc_reader');
+  const MethodChannel('flutter_nfc_reader');
 
   static Future<NfcData> get read async {
     final Map data = await _channel.invokeMethod('NfcRead');
@@ -81,9 +81,9 @@ class FlutterNfcReader {
     return result;
   }
 
-  static Future<NfcData> write(List<dynamic> nfcRecords) async {
+  static Future<NfcData> write(List<dynamic> nfcRecords, String lastTagReadId) async {
     final Map data = await _channel
-        .invokeMethod('NfcWrite', <String, dynamic>{'records': nfcRecords});
+        .invokeMethod('NfcWrite', <String, dynamic>{'records': nfcRecords, 'lastTagReadId': lastTagReadId});
     final NfcData result = NfcData.fromMap(data);
     return result;
   }
