@@ -73,15 +73,19 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler, NfcA
 
                 if (!isReading) {
                     val data = mapOf(kId to "", kContent to null, kError to "NFC Hardware not found", kStatus to "error")
-                    result.success(data)
-                    resulter = null
+                    activity.runOnUiThread(java.lang.Runnable {
+                        result.success(data)
+                        resulter = null
+                    })
                 }
 
             }
             "NfcStop" -> {
                 stopNFC()
                 val data = mapOf(kId to "", kContent to null, kError to "", kStatus to "stopped")
-                result.success(data)
+                activity.runOnUiThread(java.lang.Runnable {
+                    result.success(data)
+                })
             }
             "NfcWrite" -> {
                 val records = call.argument<ArrayList<String>>("records");
@@ -107,20 +111,30 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler, NfcA
                 writeNFC()
                 if (!isReading) {
                     val data = mapOf(kId to "", kContent to null, kError to "NFC Hardware not found", kStatus to "error")
-                    result.success(data)
+                    activity.runOnUiThread(java.lang.Runnable {
+                        result.success(data)
+                    })
                 }
             }
             "NfcAvailability" -> {
                 if (nfcAdapter == null) {
-                    result.success("NFC_UNAVAILABLE")
+                    activity.runOnUiThread(java.lang.Runnable {
+                        result.success("NFC_UNAVAILABLE")
+                    })
                 } else if (nfcAdapter?.isEnabled == true) {
-                    result.success("NFC_AVAILABLE_ON")
+                    activity.runOnUiThread(java.lang.Runnable {
+                        result.success("NFC_AVAILABLE_ON")
+                    })
                 } else {
-                    result.success("NFC_AVAILABLE_OFF")
+                    activity.runOnUiThread(java.lang.Runnable {
+                        result.success("NFC_AVAILABLE_OFF")
+                    })
                 }
             }
             else -> {
-                result.notImplemented()
+                activity.runOnUiThread(java.lang.Runnable {
+                    result.notImplemented()
+                })
             }
         }
     }
@@ -172,18 +186,24 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler, NfcA
         } catch (e: android.nfc.TagLostException) {
             e.printStackTrace()
             val data = mapOf(kId to "", kContent to null, kError to "Tag lost", kStatus to "error")
-            resulter?.success(data)
+            activity.runOnUiThread(java.lang.Runnable {
+                resulter?.success(data)
+            })
         } catch (e: java.io.IOException) {
             e.printStackTrace()
             val data = mapOf(kId to "", kContent to null, kError to "I/O exception", kStatus to "error")
-            resulter?.success(data)
+            activity.runOnUiThread(java.lang.Runnable {
+                resulter?.success(data)
+            })
         }
     }
 
     private fun onWriteTag(tag: Tag?) {
         if (this.recordsToSave.size == 0) {
             val data = mapOf(kId to "", kContent to null, kError to "No records to write", kStatus to "error")
-            resulter?.success(data)
+            activity.runOnUiThread(java.lang.Runnable {
+                resulter?.success(data)
+            })
             return;
         }
         if (tag != null) {
@@ -208,7 +228,9 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler, NfcA
                     }
                     if(!isTheSameTag){
                         val data = mapOf(kId to "", kContent to null, kError to "Cannot write to different tag", kStatus to "error_diff_tag")
-                        resulter?.success(data);
+                        activity.runOnUiThread(java.lang.Runnable {
+                            resulter?.success(data);
+                        })
                         ndef.close();
                         return;
                     }
@@ -229,10 +251,14 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler, NfcA
                     ndef.close();
                     if (payloadList.size > 0) {
                         val data = mapOf(kId to id, kContent to payloadList, kError to "", kStatus to "finishedwrite")
-                        resulter?.success(data)
+                        activity.runOnUiThread(java.lang.Runnable {
+                            resulter?.success(data)
+                        })
                     }else{
                         val data = mapOf(kId to "", kContent to null, kError to "Data not written properly", kStatus to "error")
-                        resulter?.success(data)
+                        activity.runOnUiThread(java.lang.Runnable {
+                            resulter?.success(data)
+                        })
                     }
                 }
             }
@@ -248,7 +274,9 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler, NfcA
         var payloadList = mutableListOf<String>();
         if(records == null){
             val data = mapOf(kId to "", kContent to payloadList, kError to "", kStatus to "read");
-            resulter?.success(data)
+            activity.runOnUiThread(java.lang.Runnable {
+                resulter?.success(data)
+            })
             ndef?.close()
             return payloadList;
         }
@@ -300,7 +328,9 @@ class FlutterNfcReaderPlugin(val registrar: Registrar) : MethodCallHandler, NfcA
         ndef?.close()
         if (payloadList.size > 0) {
             val data = mapOf(kId to id, kContent to payloadList, kError to "", kStatus to "read")
-            resulter?.success(data)
+            activity.runOnUiThread(java.lang.Runnable {
+                resulter?.success(data)
+            })
         }
     }
 
